@@ -1,6 +1,7 @@
 import * as debugLib from "debug";
 import * as path from "path";
 import * as webpack from "webpack";
+import * as winston from "winston";
 import { IPackhostGeneratorOptions } from "./";
 import { FileHelper } from "./utils";
 
@@ -14,6 +15,7 @@ export interface IWebpackRunner {
     uglify?: boolean;
     watch?: boolean;
     ignoredModules?: string[];
+    editConfig?: string;
 }
 
 export class WebpackRunner {
@@ -38,7 +40,7 @@ export class WebpackRunner {
             }
 
             debug("Creating Webpack Configuration");
-            const config: webpack.Configuration = {
+            let config: webpack.Configuration = {
                 entry: packHostPath,
                 externals: ignoredModules,
                 node: {
@@ -63,6 +65,17 @@ export class WebpackRunner {
                 } catch (e) {
                     debug(e);
                 }
+            }
+
+            try {
+                if (options.editConfig) {
+                    const customizeFunctionPath = path.join(options.projectRootPath, options.editConfig);
+                    const customizeFunction = require(customizeFunctionPath);
+                    config = customizeFunction(config, webpack);
+                }
+            } catch (e) {
+                winston.error(e);
+                throw new Error("Could not apply customize function");
             }
 
             debug("Creating Webpack instance");
